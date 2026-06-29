@@ -14,6 +14,11 @@ web/.output/
 web/.nitro/
 web/.tanstack/
 
+# Server SQLite store (default --db path) and WAL sidecars
+envvar.db
+envvar.db-shm
+envvar.db-wal
+
 # envvar's own secrets, should this repo ever use them
 .env.keys
 .env.local

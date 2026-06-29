@@ -15,7 +15,7 @@ func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "envvar",
 		Short:         "envvar — git-native, post-quantum, agent-ready secrets",
-		Long:          "envvar manages environment variables as an encrypted, git-committable file and (soon) a self-hostable server.",
+		Long:          "envvar manages environment variables as an encrypted, git-committable file, with a self-hostable web UI + API.",
 		Version:       version.Version,
 		SilenceUsage:  true,
 		SilenceErrors: false,
@@ -27,11 +27,14 @@ func NewRootCmd() *cobra.Command {
 		newSetCmd(),
 		newEncryptCmd(),
 		newGetCmd(),
+		newListCmd(),
+		newRmCmd(),
 		newRunCmd(),
+		newRekeyCmd(),
+		newGuardCmd(),
 		newServerCmd(),
 		newStubCmd("sync", "Push secrets to platforms (GitHub, Vercel, Azure, ...)"),
 		newStubCmd("pull", "Import secrets from platforms into the encrypted file"),
-		newStubCmd("rekey", "Re-wrap all secrets under a new algorithm/key/recipients"),
 		newStubCmd("mcp", "Run the agent MCP server (use-but-never-see grants)"),
 	)
 	return root

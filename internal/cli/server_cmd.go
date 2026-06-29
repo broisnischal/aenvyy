@@ -14,17 +14,26 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nees/envvar/internal/server"
+	"github.com/nees/envvar/internal/sqlitestore"
 )
 
 func newServerCmd() *cobra.Command {
 	var addr string
+	var dbPath string
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Run the self-hostable web UI + API server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			log := slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), nil))
-			srv := server.New(log)
+
+			store, err := sqlitestore.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("open store: %w", err)
+			}
+			defer store.Close()
+
+			srv := server.New(log, store)
 			httpSrv := &http.Server{
 				Addr:              addr,
 				Handler:           srv.Handler(),
@@ -36,7 +45,7 @@ func newServerCmd() *cobra.Command {
 
 			errCh := make(chan error, 1)
 			go func() {
-				fmt.Fprintf(cmd.ErrOrStderr(), "envvar server listening on %s\n", addr)
+				fmt.Fprintf(cmd.ErrOrStderr(), "envvar server listening on %s (db %s)\n", addr, dbPath)
 				errCh <- httpSrv.ListenAndServe()
 			}()
 
@@ -54,5 +63,6 @@ func newServerCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&addr, "addr", ":8080", "listen address")
+	cmd.Flags().StringVar(&dbPath, "db", "envvar.db", "path to the SQLite database file")
 	return cmd
 }

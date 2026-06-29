@@ -85,6 +85,17 @@ func (f *File) Set(key, value string) {
 	f.lines = append(f.lines, line{kind: kindPair, key: key, value: value})
 }
 
+// Unset removes the first pair matching key, returning whether it was present.
+func (f *File) Unset(key string) bool {
+	for i := range f.lines {
+		if f.lines[i].kind == kindPair && f.lines[i].key == key {
+			f.lines = append(f.lines[:i], f.lines[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // Pairs returns all key/value pairs in file order.
 func (f *File) Pairs() [][2]string {
 	var out [][2]string

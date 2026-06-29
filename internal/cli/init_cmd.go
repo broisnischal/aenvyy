@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -54,8 +55,17 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
+			// 4. Install the pre-commit guard (best-effort; only inside a git repo).
+			installed, herr := installPreCommitHook()
+			if herr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  note: could not install pre-commit hook: %v\n", herr)
+			}
+
 			fmt.Fprintf(out, "Initialized envvar project %q\n", name)
 			fmt.Fprintf(out, "  wrote %s (config) and %s (private key, gitignored)\n", config.FileName, keys.KeysFile)
+			if installed {
+				fmt.Fprintln(out, "  installed .git/hooks/pre-commit guard (blocks plaintext leaks)")
+			}
 			fmt.Fprintln(out, "  next: `envvar set KEY=value` then `envvar run -- your-cmd`")
 			return nil
 		},
@@ -97,6 +107,47 @@ func ensureGitignore() error {
 	sb.WriteString(strings.Join(add, "\n"))
 	sb.WriteByte('\n')
 	return store.WriteFileAtomic(path, []byte(sb.String()), 0o644)
+}
+
+// preCommitSnippet is the shell that invokes the guard; it no-ops cleanly when
+// the envvar binary isn't on PATH so the hook never blocks unrelated work.
+const preCommitSnippet = `if command -v envvar >/dev/null 2>&1; then
+  envvar guard || exit 1
+fi
+`
+
+const preCommitHook = "#!/bin/sh\n# Installed by envvar — block committing plaintext secrets or private keys.\n" + preCommitSnippet
+
+// installPreCommitHook writes (or augments) .git/hooks/pre-commit to run the
+// guard. Returns false (no error) when not in a standard git repo. If a hook
+// already exists, the snippet is appended unless it is already present.
+func installPreCommitHook() (bool, error) {
+	info, err := os.Stat(".git")
+	if err != nil || !info.IsDir() {
+		return false, nil // not a git repo, or a worktree/submodule .git file — skip
+	}
+	hooksDir := filepath.Join(".git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		return false, err
+	}
+	hookPath := filepath.Join(hooksDir, "pre-commit")
+
+	existing, err := os.ReadFile(hookPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, store.WriteFileAtomic(hookPath, []byte(preCommitHook), 0o755)
+		}
+		return false, err
+	}
+	if strings.Contains(string(existing), "envvar guard") {
+		return false, nil // already installed
+	}
+	merged := string(existing)
+	if !strings.HasSuffix(merged, "\n") {
+		merged += "\n"
+	}
+	merged += "\n# envvar guard\n" + preCommitSnippet
+	return true, store.WriteFileAtomic(hookPath, []byte(merged), 0o755)
 }
 
 func baseName(path string) string {

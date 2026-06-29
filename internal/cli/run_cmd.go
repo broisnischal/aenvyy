@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nees/envvar/internal/envfile"
 	"github.com/nees/envvar/internal/keys"
 )
 
@@ -31,6 +32,10 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 			secrets, err := f.Decrypted(id)
+			if err != nil {
+				return err
+			}
+			secrets, err = envfile.Compose(secrets)
 			if err != nil {
 				return err
 			}

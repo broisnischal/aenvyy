@@ -12,8 +12,10 @@ Git-native, post-quantum, agent-ready environment-variable manager.
   binary (the SPA is embedded), runnable from one Docker image.
 
 > Status: early scaffold. The crypto core, env-file store, and CLI
-> (`init`/`set`/`get`/`run`/`keygen`) work end-to-end. The server exposes health
-> + stubbed `/v1` endpoints and serves the embedded UI. See
+> (`init`/`set`/`get`/`run`/`keygen`) work end-to-end. The server serves the
+> embedded UI and persists ciphertext bundles via a pure-Go **SQLite (WAL)**
+> backend — the `/v1` project + secrets endpoints are live (zero-knowledge:
+> ciphertext only). See
 > [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
 > [RESEARCH.md](./RESEARCH.md).
 
@@ -45,6 +47,27 @@ bin/envvar run --env production -- npm start
 
 `.env` / `.env.production` hold only ciphertext and are safe to commit.
 `.env.keys` holds your private key, is `chmod 600`, and is gitignored.
+
+### CLI commands
+
+| Command | Purpose |
+|---|---|
+| `envvar init` | Generate keys, write `envvar.toml` + `.gitignore`, install the pre-commit guard. |
+| `envvar keygen` | Print a fresh hybrid keypair (no project needed). |
+| `envvar set KEY=val [--env e]` | Encrypt one or more values into the env file. |
+| `envvar get [KEY] [--env e]` | Decrypt and print a value (or all). Expands `{{REF}}` composition. |
+| `envvar ls [--env e]` | List keys + encryption status — never prints values. |
+| `envvar rm KEY... [--env e]` | Remove keys from the env file. |
+| `envvar encrypt [--env e]` | Encrypt any remaining plaintext values in place. |
+| `envvar run [--env e] -- cmd` | Decrypt in memory, expand refs, inject, and exec a command. |
+| `envvar rekey [--env e] [--add-recipient label=pk_…]` | Re-wrap all secrets under fresh keys / grant a new recipient. |
+| `envvar guard` | Pre-commit check (run by the installed hook): blocks plaintext/key leaks. |
+| `envvar server [--addr] [--db]` | Run the self-hostable web UI + API. |
+| `envvar sync` / `pull` / `mcp` | Planned (platform sync, agent MCP server) — not implemented yet. |
+
+**Secret composition:** values may reference other keys, e.g.
+`DATABASE_URL="postgres://{{DB_USER}}:{{DB_PASS}}@localhost/app"` — references
+are resolved (cycle-safe) at `get`/`run` time, never stored expanded.
 
 ## Build everything (single binary with web UI)
 

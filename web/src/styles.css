@@ -1,5 +1,29 @@
-
 @import "tailwindcss";
+
+/*
+  envvar design language — a dark, developer-tool aesthetic for a secrets
+  manager. Near-black canvas, faint hairline borders, a single emerald accent
+  that signals "secure / encrypted", monospace for keys and ciphertext. Tokens
+  live here; components compose them with Tailwind utilities.
+*/
+@theme {
+  --color-canvas: #08090c;
+  --color-surface: #0e1014;
+  --color-surface-2: #14171d;
+  --color-line: #20242c;
+  --color-line-soft: #181b21;
+  --color-ink: #e7ebf0;
+  --color-ink-dim: #9aa3af;
+  --color-ink-faint: #5b6471;
+
+  --color-accent: #34d399;        /* emerald-400 */
+  --color-accent-dim: #0f3d30;
+  --color-violet: #a78bfa;
+  --color-amber: #fbbf24;
+  --color-danger: #f87171;
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
 
 * {
   box-sizing: border-box;
@@ -11,7 +35,49 @@ body,
   min-height: 100%;
 }
 
-body {
-  margin: 0;
+html {
+  color-scheme: dark;
 }
 
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Subtle radial glow so the canvas isn't dead-flat. */
+  background-image: radial-gradient(
+    ellipse 80% 50% at 50% -10%,
+    rgba(52, 211, 153, 0.06),
+    transparent
+  );
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.25);
+}
+
+/* Slim, dark scrollbars to match the surface. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Reusable surface card. */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+}
+
+/* Focus ring consistent across interactive elements. */
+.ring-accent:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

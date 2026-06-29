@@ -40,6 +40,44 @@ func (f *File) EncryptInPlace(recipients []*crypto.Recipient, verify *crypto.Ide
 	return nil
 }
 
+// RekeyInPlace re-wraps every value under a fresh data key for the given
+// recipient set. Encrypted values are decrypted with old and re-encrypted;
+// plaintext values are encrypted for the first time. This powers `envvar rekey`:
+// rotating data keys, switching algorithms, or granting/revoking a recipient
+// (change the recipient list, then rekey so existing secrets are reachable by
+// the new set). Each result is round-trip verified against verify (may be nil).
+func (f *File) RekeyInPlace(old *crypto.Identity, recipients []*crypto.Recipient, verify *crypto.Identity) error {
+	if len(recipients) == 0 {
+		return fmt.Errorf("rekey: no recipients configured")
+	}
+	for i := range f.lines {
+		l := &f.lines[i]
+		if l.kind != kindPair || IsHeaderKey(l.key) {
+			continue
+		}
+		plain := l.value
+		if crypto.IsEncrypted(l.value) {
+			b, err := crypto.Decrypt(l.value, old)
+			if err != nil {
+				return fmt.Errorf("rekey %s: decrypt: %w", l.key, err)
+			}
+			plain = string(b)
+		}
+		env, err := crypto.Encrypt([]byte(plain), recipients)
+		if err != nil {
+			return fmt.Errorf("rekey %s: %w", l.key, err)
+		}
+		if verify != nil {
+			got, derr := crypto.Decrypt(env, verify)
+			if derr != nil || string(got) != plain {
+				return fmt.Errorf("rekey %s: round-trip validation failed", l.key)
+			}
+		}
+		l.value = env
+	}
+	return nil
+}
+
 // SetSecret encrypts a single plaintext value and stores it under key.
 func (f *File) SetSecret(key, plaintext string, recipients []*crypto.Recipient) error {
 	env, err := crypto.Encrypt([]byte(plaintext), recipients)
